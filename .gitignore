@@ -4,3 +4,6 @@ data/
 __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
+
+# Generated binary artifacts (recreate by running the notebooks)
+outputs/*.pkl
