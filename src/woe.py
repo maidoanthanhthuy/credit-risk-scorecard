@@ -158,7 +158,9 @@ def bin_frame(df: pd.DataFrame, spec: dict[str, BinRule]) -> pd.DataFrame:
     return pd.DataFrame({c: apply_bins(df[c], rule) for c, rule in spec.items()})
 
 
-def woe_table(bins: pd.Series, target: pd.Series, smoothing: float = 0.5) -> pd.DataFrame:
+def woe_table(
+    bins: pd.Series, target: pd.Series, smoothing: float = 0.5, min_share: float = 0.005
+) -> pd.DataFrame:
     """Compute per-bin statistics, WoE and IV contribution.
 
     Args:
@@ -166,6 +168,10 @@ def woe_table(bins: pd.Series, target: pd.Series, smoothing: float = 0.5) -> pd.
         target: Binary target aligned with ``bins`` (1 = bad/default).
         smoothing: Added to good and bad counts of each bin to avoid
             ``log(0)`` when a bin has no goods or no bads.
+        min_share: Bins holding less than this share of the population get
+            WoE 0 (average risk). Their WoE is unreliable, and additive
+            smoothing pulls tiny bins towards 1:1 odds, which can even flip
+            the sign (e.g. one good and no bads gives a negative WoE).
 
     Returns:
         DataFrame indexed by bin (empty bins dropped) with columns ``n``,
@@ -176,9 +182,10 @@ def woe_table(bins: pd.Series, target: pd.Series, smoothing: float = 0.5) -> pd.
     bad = stats["n_bad"] + smoothing
     dist_good = good / good.sum()
     dist_bad = bad / bad.sum()
-    woe = np.log(dist_good / dist_bad)
+    share = stats["n"] / stats["n"].sum()
+    woe = np.log(dist_good / dist_bad).where(share >= min_share, 0.0)
     table = stats.assign(
-        share=stats["n"] / stats["n"].sum(),
+        share=share,
         bad_rate=stats["n_bad"] / stats["n"],
         woe=woe,
         iv=(dist_good - dist_bad) * woe,

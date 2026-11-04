@@ -150,3 +150,12 @@ def test_woe_frame_maps_woe_and_unseen_bin_to_zero() -> None:
     tables = {"x": pd.DataFrame({"woe": [0.5, -0.5]}, index=pd.Index(["a", "b"], name="bin"))}
     binned = pd.DataFrame({"x": ["a", "b", "c"]})
     assert woe_frame(binned, tables)["x"].tolist() == [0.5, -0.5, 0.0]
+
+
+def test_woe_table_tiny_bin_gets_neutral_woe() -> None:
+    # Regression: one good and no bads used to get a negative WoE (-1.33 on real data)
+    bins = pd.Series(["big"] * 1000 + ["tiny"])
+    target = pd.Series([1] * 100 + [0] * 900 + [0])
+    t = woe_table(bins, target, min_share=0.005)
+    assert t.loc["tiny", "woe"] == 0.0 and t.loc["tiny", "iv"] == 0.0
+    assert woe_table(bins, target, min_share=0.0).loc["tiny", "woe"] < 0
