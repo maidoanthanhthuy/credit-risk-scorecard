@@ -3,6 +3,7 @@ numpy>=2.5
 scikit-learn>=1.9
 statsmodels>=0.15
 shap>=0.54
+lightgbm>=4.7
 matplotlib>=3.11
 pytest>=9.2
 ipykernel>=7.4

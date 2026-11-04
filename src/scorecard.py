@@ -109,6 +109,31 @@ def neutral_points(coefs: pd.Series, intercept: float, factor: float, offset: fl
     return (offset - factor * intercept) / len(coefs)
 
 
+def points_frame(binned: pd.DataFrame, card: pd.DataFrame, default_points: float) -> pd.DataFrame:
+    """Points earned by each customer on each feature.
+
+    Args:
+        binned: Bin labels per feature (output of :func:`src.woe.bin_frame`).
+        card: Output of :func:`scorecard_table`.
+        default_points: Points for a bin absent from ``card``
+            (see :func:`neutral_points`).
+
+    Returns:
+        DataFrame indexed like ``binned`` with one column per card feature.
+    """
+    return pd.DataFrame(
+        {
+            feature: binned[feature]
+            .astype(str)
+            .map(dict(zip(rows["bin"], rows["points"])))
+            .astype(float)
+            .fillna(default_points)
+            for feature, rows in card.groupby("feature", sort=False)
+        },
+        index=binned.index,
+    )
+
+
 def apply_scorecard(binned: pd.DataFrame, card: pd.DataFrame, default_points: float) -> pd.Series:
     """Score customers by summing the points of their bins.
 
@@ -121,11 +146,7 @@ def apply_scorecard(binned: pd.DataFrame, card: pd.DataFrame, default_points: fl
     Returns:
         Total score per customer, indexed like ``binned``.
     """
-    total = pd.Series(0.0, index=binned.index)
-    for feature, rows in card.groupby("feature", sort=False):
-        mapping = dict(zip(rows["bin"], rows["points"]))
-        total += binned[feature].astype(str).map(mapping).astype(float).fillna(default_points)
-    return total.rename("score")
+    return points_frame(binned, card, default_points).sum(axis=1).rename("score")
 
 
 def points_direction(card: pd.DataFrame, min_share: float = 0.005) -> pd.DataFrame:
