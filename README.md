@@ -1,6 +1,33 @@
 # Credit Risk Scorecard with Explainable AI
 
-An end-to-end credit scorecard built on the [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk) dataset, following the classic banking workflow: **WoE binning → IV-based feature selection → logistic regression → points-based scorecard**, complemented by **SHAP** for explainability.
+An end-to-end credit scorecard built on the [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk) dataset, following the classic banking workflow: **WoE binning → IV-based feature selection → logistic regression → points-based scorecard**. It is then challenged by **LightGBM** and explained with **SHAP**, and both models are audited for **fairness**.
+
+## Key results
+
+| Model (test set, 61,503 applications) | AUC | Gini | KS | Features |
+|---|---|---|---|---|
+| **Scorecard** (logistic regression on WoE) | 0.739 | 0.477 | 0.357 | 16 |
+| LGBM-16 (same features, raw values) | 0.751 | 0.502 | 0.373 | 16 |
+| LGBM-16-mono (+ monotone constraints) | 0.746 | 0.491 | 0.363 | 16 |
+| LGBM-full | **0.759** | **0.518** | **0.391** | 119 |
+
+- **The scorecard is solid and fully transparent.** 16 features, all coefficients negative, points fall with bad rate within every feature, and the calibration ratio is 0.91–1.08 in every decile. Score scale: 600 points at 50:1 odds, PDO 20.
+- **LightGBM adds +0.041 Gini.** About 60% of the gain comes from the algorithm and 40% from extra features. Monotone constraints cost 0.010 Gini and remove counter-intuitive local behaviour: without them, only 0–40% of individual PD curves are monotone for most features.
+- **SHAP shows that both models agree on the essentials.** The top 3 drivers are the same in both (`EXT_SOURCE_3/2/1`), the 16 scorecard features carry 66% of LightGBM's importance, and the two models make the same decision for 89% of applicants at cut-off 550. LightGBM's extra signal comes mostly from loan structure: `AMT_CREDIT` vs `AMT_GOODS_PRICE` act in opposite directions, which amounts to a credit-to-price ratio.
+- **Fairness through unawareness is not enough.** Gender is excluded, yet the features predict it with AUC 0.88 (via `OCCUPATION_TYPE`, `OWN_CAR_AGE`, `ORGANIZATION_TYPE`). Every model over-estimates women's risk (calibration 0.93–0.95) and under-estimates men's (1.08–1.12). The scorecard, which does not use age, **over-estimates the risk of applicants under 25 by about 35%** (calibration 0.74, approval rate 33%). LGBM-full, which uses age, is better calibrated for them (0.93, approval 52%).
+
+<p align="center">
+  <img src="outputs/roc_comparison.png" width="45%" alt="ROC curves of the four models">
+  <img src="outputs/shap_beeswarm_lgbm_full.png" width="50%" alt="SHAP beeswarm of LGBM-full">
+</p>
+
+**Same applicant, two explanations.** The scorecard rejects (546 < 550) and LightGBM approves (561). Both are expressed in score points (blue = raises the score, orange = lowers it):
+
+![Waterfall of one applicant under both models](outputs/case_3_waterfall.png)
+
+**Approval rate and calibration by age band** (cut-off 550):
+
+![Fairness by age band](outputs/fairness_age.png)
 
 ## Data
 
@@ -27,37 +54,46 @@ Open the notebooks with the **Python (credit-risk)** kernel.
 
 Run the notebooks in order; each one reads the files written by the previous one.
 
-| Notebook | Step | Output |
+| Notebook | Step | Main outputs |
 |---|---|---|
 | `01_eda` | Structure, default rate, missing values, variable types | — |
 | `02_data_cleaning` | Fix `DAYS_EMPLOYED` placeholder, invalid labels, days → years | `data/application_train_clean.pkl` |
 | `03_train_test_split` | Stratified 80/20 split | `data/train.pkl`, `data/test.pkl` |
 | `04_woe_iv` | Fine classing, WoE and IV (train only) | `outputs/woe_spec.pkl`, `outputs/iv_summary.csv` |
-| `05_feature_selection` | Monotonic coarse classing, IV and correlation filters, WoE encoding | `data/woe_train.pkl`, `data/woe_test.pkl`, `outputs/selected_features.csv` |
+| `05_feature_selection` | Monotonic coarse classing, IV and correlation filters, WoE encoding | `data/woe_*.pkl`, `outputs/selected_features.csv` |
+| `06_modelling` | Logistic regression, stepwise drop on sign / p-value / VIF | `outputs/logit_model.pkl`, `model_coefficients.csv` |
+| `07_evaluation` | AUC, Gini, KS, ROC/KS curves, gains table (test) | `outputs/metrics.csv`, `gains_table_test.csv` |
+| `08_scorecard` | PDO scaling, points table, direction checks, calibration, PSI, cut-offs | `outputs/scorecard.csv`, `cutoff_table_test.csv` |
+| `09_lightgbm` | LightGBM challengers (with / without monotone constraints) | `outputs/lgbm_*.pkl`, `model_comparison.csv` |
+| `10_shap` | SHAP: global importance, dependence, case studies, reason codes | `outputs/shap_importance.csv`, `reason_codes_cases.csv` |
+| `11_fairness` | Approval, calibration and AUC by gender and age; proxy check | `outputs/fairness_*.csv` |
 
 ## Methodology
 
-- **Missing values are not imputed** for binned features: they form their own `Missing` bin, so missingness can carry signal. Columns are dropped by IV, not by missing rate.
-- **WoE = ln(%good / %bad)**: positive values mean lower risk than average.
+**Binning and selection**
+- **Missing values are not imputed** for binned features. They form their own `Missing` bin, so missingness can carry signal. Columns are dropped by IV, not by missing rate.
+- **WoE = ln(%good / %bad)**: positive values mean lower risk than average. Bins holding < 0.5% of rows get WoE 0, because smoothing would otherwise give tiny bins unreliable or even wrong-sign WoE.
 - **Fine classing**: up to 10 quantile bins per numeric feature; categories with < 1% of rows are grouped into `Rare`.
 - **Coarse classing**: adjacent numeric bins are merged until the bad rate is strictly monotonic.
 - **Selection**: IV ≥ 0.02, then greedy removal of features with |r| ≥ 0.7 (on WoE values) against a higher-IV feature.
-- All binning and WoE values are fitted on train and applied unchanged to test.
 
-## Results so far
+**Scorecard**
+- **Protected attributes** (`CODE_GENDER`, `NAME_FAMILY_STATUS`) are excluded from all models.
+- **Stepwise cleanup**: the model is refit after each drop. The feature dropped first is the one with a positive coefficient, then any with p > 0.05, then any with VIF > 5. This removed `AGE_YEARS`, `REGION_POPULATION_RELATIVE`, `REG_CITY_NOT_WORK_CITY` and `NAME_INCOME_TYPE`, all for sign flips. All VIFs are below 2.
+- **Scaling**: `score = offset + factor × ln(odds)`, with `factor = PDO / ln 2`. The intercept is spread evenly over the features, so a score is the sum of bin points.
 
-- Default rate: **8.07%** (imbalance 11.4 : 1).
-- **121 → 53 → 22 features** after IV and correlation filters; all numeric features monotonic; train/test IV stable for the strongest features.
+**LightGBM and SHAP**
+- Same train/test split. Early stopping uses a validation split carved from train, and the final model is refit on the full train set. The test set is never used for tuning. No class weights are used, so PDs stay calibrated.
+- Monotone directions come from the Spearman correlation of each feature with the target on train; categorical features are left unconstrained.
+- SHAP values are exact TreeSHAP (LightGBM `pred_contrib`), converted to score points as `−factor × SHAP`. For the scorecard, the equivalent is each feature's points minus its train average.
 
-| Feature | IV (train) | IV (test) |
-|---|---|---|
-| `EXT_SOURCE_3` | 0.330 | 0.331 |
-| `EXT_SOURCE_2` | 0.303 | 0.321 |
-| `EXT_SOURCE_1` | 0.151 | 0.149 |
-| `YEARS_EMPLOYED` | 0.111 | 0.114 |
-| `AGE_YEARS` | 0.087 | 0.076 |
+All binning, WoE values, category levels and constraints are fitted on train and applied unchanged to test.
 
-Full list: `outputs/selected_features.csv`.
+## Limitations
+
+- **Single split.** The test set has now been used for evaluation, so further model changes should be compared with cross-validation on train.
+- **Only the `application` table is used.** Bureau and previous-application data would add signal; leaderboard models reach AUC ≈ 0.80.
+- **The fairness analysis is descriptive.** The under-25 group is small (2,390 test applicants, 280 defaults). No mitigation has been applied, and whether age may be used depends on the jurisdiction.
 
 ## Project structure
 
@@ -68,9 +104,15 @@ src/            Pure, typed, tested functions
   split.py        Stratified train/test split
   woe.py          Binning, WoE/IV, monotonic coarse classing, WoE encoding
   selection.py    IV and correlation filters
-notebooks/      Pipeline steps 01–05
-tests/          pytest suite
-outputs/        Binning specs, WoE tables, IV summaries
+  model.py        Logistic regression, VIF, stepwise drop, PD prediction
+  evaluation.py   AUC/Gini/KS, gains, calibration, PSI
+  scorecard.py    PDO scaling, points table, direction and cut-off checks
+  gbm.py          LightGBM features, monotone constraints, training
+  explain.py      SHAP in score points, reason codes, case selection
+  fairness.py     Group metrics, disparate impact, proxy check
+notebooks/      Pipeline steps 01–11
+tests/          pytest suite (76 tests)
+outputs/        Specs, tables and figures produced by the notebooks
 data/           Raw and intermediate data (git-ignored)
 ```
 
@@ -84,7 +126,10 @@ pytest -v
 
 - [x] EDA and cleaning
 - [x] WoE/IV binning and feature selection
-- [ ] Logistic regression (coefficient signs, p-values, VIF)
-- [ ] Evaluation: AUC, Gini, KS
-- [ ] Score scaling (PDO) and scorecard table
-- [ ] Explainability with SHAP
+- [x] Logistic regression (coefficient signs, p-values, VIF)
+- [x] Evaluation: AUC, Gini, KS
+- [x] Score scaling (PDO) and scorecard table
+- [x] LightGBM challengers with monotone constraints
+- [x] Explainability with SHAP
+- [x] Fairness check by gender and age
+- [ ] Ratio features (credit / goods price, annuity / income) for a scorecard v2, validated with CV
