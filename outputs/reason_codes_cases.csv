@@ -1,0 +1,25 @@
+case,model,decision,feature,value,points
+Rejected by both,Scorecard,reject,EXT_SOURCE_3,0.19519840600440985,-28.8
+Rejected by both,Scorecard,reject,YEARS_EMPLOYED,3.14,-3.0
+Rejected by both,Scorecard,reject,FLAG_DOCUMENT_3,1,-2.1
+Rejected by both,Scorecard,reject,NAME_EDUCATION_TYPE,Secondary / secondary special,-2.0
+Rejected by both,LGBM-full,reject,EXT_SOURCE_3,0.19519840600440985,-26.6
+Rejected by both,LGBM-full,reject,AMT_GOODS_PRICE,450000.0,-8.2
+Rejected by both,LGBM-full,reject,AMT_CREDIT,640080.0,-6.0
+Rejected by both,LGBM-full,reject,AMT_ANNUITY,29970.0,-5.5
+Approved by both,Scorecard,approve,EXT_SOURCE_2,0.7428859229110657,19.9
+Approved by both,Scorecard,approve,REGION_RATING_CLIENT_W_CITY,1.0,4.1
+Approved by both,Scorecard,approve,OCCUPATION_TYPE,,1.8
+Approved by both,Scorecard,approve,YEARS_EMPLOYED,8.62,1.1
+Approved by both,LGBM-full,approve,EXT_SOURCE_2,0.7428859229110657,18.1
+Approved by both,LGBM-full,approve,YEARS_EMPLOYED,8.62,2.8
+Approved by both,LGBM-full,approve,REGION_RATING_CLIENT_W_CITY,1.0,2.0
+Approved by both,LGBM-full,approve,OCCUPATION_TYPE,,1.2
+"Scorecard rejects, LGBM approves",Scorecard,reject,EXT_SOURCE_2,0.1351618859573408,-22.6
+"Scorecard rejects, LGBM approves",Scorecard,reject,EXT_SOURCE_3,,-7.0
+"Scorecard rejects, LGBM approves",Scorecard,reject,YEARS_EMPLOYED,1.71,-3.7
+"Scorecard rejects, LGBM approves",Scorecard,reject,OCCUPATION_TYPE,Sales staff,-2.0
+"Scorecard rejects, LGBM approves",LGBM-full,approve,ORGANIZATION_TYPE,Trade: type 2,8.6
+"Scorecard rejects, LGBM approves",LGBM-full,approve,AMT_GOODS_PRICE,1125000.0,8.2
+"Scorecard rejects, LGBM approves",LGBM-full,approve,AGE_YEARS,23.38,6.0
+"Scorecard rejects, LGBM approves",LGBM-full,approve,NAME_EDUCATION_TYPE,Higher education,4.9

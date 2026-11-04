@@ -1,9 +1,11 @@
+# Local instruction files
 CLAUDE.md
 PROGRESS.md
+
+# Kaggle data: files exceed GitHub's 100 MB limit and may not be redistributed
 data/
+
+# Caches
 __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
-
-# Generated binary artifacts (recreate by running the notebooks)
-outputs/*.pkl
