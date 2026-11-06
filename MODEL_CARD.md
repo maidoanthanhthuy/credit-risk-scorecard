@@ -1,5 +1,15 @@
 # Model Card: Application Scorecard v1
 
+## Summary
+
+- **What it does.** It estimates how likely a loan applicant is to have repayment problems. The estimate is turned into a credit score: a higher score means a safer applicant, and every 20 points halves the odds of default.
+- **How good it is.** It separates good and bad applicants at a level considered acceptable for retail credit. Its predicted default rates match the observed ones closely, and it behaves the same on unseen data as on training data. A more complex machine-learning model (LightGBM) ranks applicants only slightly better.
+- **How it decides.** About 61% of applicants are approved automatically, 23% are sent to a human underwriter, and 16% are rejected. Each decision comes with the main reasons behind the score.
+- **Main risk.** Applicants under 25 are scored as riskier than they really are, and about half of them are rejected without human review. Differences by gender are small.
+- **Status.** It is a validated prototype. Running it on real applications would need a scoring service, monitoring over time, and sign-off by an independent validation team (see *Deployment considerations*).
+
+Technical terms are explained in the [Glossary](#glossary).
+
 ## Model details
 
 | | |
@@ -78,6 +88,8 @@ The three external scores account for most of the score. Within every feature, p
 | Bads captured in the riskiest 30% | 62% | |
 | Score PSI / max feature CSI (train vs test) | 0.0002 / 0.0004 | < 0.1 stable |
 
+*In plain words:* the model ranks risk clearly better than chance, predicts default rates accurately in every risk band, and shows no sign of over-fitting or of a shift between training and test data.
+
 **Versus challengers.** LGBM-full reaches Gini 0.518. Its gain over the scorecard is +0.041, with a paired-bootstrap 95% CI of 0.035–0.048. The gain is statistically significant but small, and it comes with 119 features, the use of age, and local explanations that are harder to defend. The scorecard is retained as champion.
 
 ## Decision policy
@@ -87,6 +99,8 @@ The three external scores account for most of the score. Within every feature, p
 | Reject | < 540 | > 13.8% | 15.8% | 21.5% | 42% |
 | Review | 540–559 | 7.4–13.8% | 23.4% | 10.1% | 29% |
 | Approve | ≥ 560 | ≤ 7.4% | 60.7% | 3.8% | 28% |
+
+*In plain words:* automatic approvals have half the average default rate (3.8% vs 8.07%), automatic rejections almost three times the average (21.5%), and the uncertain middle goes to a person.
 
 Applicants are approved automatically only when their PD is below the portfolio average (8.07%). Compared with a single cut-off at 550, the share of all bads that are approved automatically falls from 42% to 28%. If manual-review capacity is limited, the 545 / 555 scheme sends 12% of applicants to review, and 35% of bads are approved automatically. Thresholds are set in `src/pipeline.py`.
 
@@ -106,6 +120,8 @@ Protected attributes are excluded, but outcomes differ by group (test set):
 | Men | 10.2% | 1.12 | ~4 points too high | 20% / 26% / 54% |
 | Under 25 | 11.7% | 0.74 | ~10 points too low | 49% / 33% / 18% |
 | 55+ | 5.4% | | | 5% / 16% / 80% |
+
+*How to read the table:* a calibration below 1 means the model predicts more defaults than actually happen, so the group's scores are too low. Above 1 means the opposite. For scale, the Review band is 20 points wide. A bias of 2–4 points therefore rarely changes a decision, while 10 points often does.
 
 - **Gender:** the features predict gender with AUC 0.88 (proxies include `OCCUPATION_TYPE`, `OWN_CAR_AGE` and `ORGANIZATION_TYPE`). The resulting bias is small in points. Women still score higher than men on average, because their risk is genuinely lower. The approval ratio of men to women is 0.89, which passes the 4/5 rule.
 - **Age:** this is the material issue. Without age, proxies over-penalise young applicants. Their true risk corresponds to a Review-band score, yet half of them are rejected automatically, where no underwriter sees them. **Recommended policy rule (not implemented):** route under-25 applicants scoring 530–559 to Review. An alternative is to reintroduce age where regulation permits; LGBM-full, which uses age, has calibration 0.93 for this group.
@@ -140,3 +156,27 @@ The repository is a validated prototype. A production deployment would add:
 | Underwriter overrides in Review | Quarterly | Systematic overrides in one direction |
 | Default rate by band, Gini, calibration | From 12 months on books | Gini drop or decile calibration outside 0.8–1.2 |
 | Approval and calibration by age and gender | Quarterly | Calibration < 0.8 or disparate impact < 0.8 |
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| **PD** (probability of default) | Estimated chance that the applicant will have repayment problems. |
+| **Default rate** | Share of applicants who actually had repayment problems. |
+| **WoE** (Weight of Evidence) | Converts each range of a feature (e.g. 2–3 years employed) into a number showing whether people in that range are safer (positive) or riskier (negative) than average. |
+| **PDO** (points to double the odds) | Score scale setting: every 20 points, the odds of repaying vs not repaying double. |
+| **AUC / Gini** | How well the model ranks bad applicants above good ones. AUC 0.5 (Gini 0) is a coin toss and AUC 1 (Gini 1) is perfect. Gini = 2 × AUC − 1. |
+| **KS** | Largest gap between the score distributions of good and bad applicants. Higher means better separation. |
+| **PR-AUC** | Like AUC, but focused on finding the bad applicants. A random model scores the default rate (0.081). |
+| **Lift** | How many times more bad applicants a group holds than average. A lift of 3.1 in the riskiest 10% means three times the average default rate. |
+| **Calibration** | Whether predicted default rates match observed ones. Shown as observed ÷ predicted, where 1 is perfect. |
+| **Confidence interval (CI)** | Range in which the true value most likely lies (95% CI), estimated here by bootstrap, i.e. re-computing the metric on many resamples of the test set. |
+| **PSI / CSI** | Population / Characteristic Stability Index: how much the distribution of the score (PSI) or of a feature (CSI) has shifted between two datasets. Below 0.1 is stable. |
+| **SHAP / contribution** | How many points each feature adds to or removes from an applicant's score, compared with the average applicant. |
+| **Reason codes** | The features that lowered an applicant's score the most, used to explain a rejection. |
+| **Adverse-action notice** | Letter telling a rejected applicant the main reasons for the decision; required by law in some countries. |
+| **Champion / challenger** | The champion model makes the decisions. Challengers run alongside it for comparison, to show whether a replacement would be better. |
+| **Proxy** | A permitted feature that indirectly reveals a protected one. For example, occupation can reveal gender. |
+| **Disparate impact / 4/5 rule** | Ratio of approval rates between two groups. A common rule of thumb flags ratios below 0.8. |
+| **Reject inference** | Methods for estimating how rejected applicants would have behaved, since their outcome is never observed. |
+| **Out-of-time validation** | Testing on applications from a later period than the training data, to check that the model still works as time passes. |
