@@ -5,6 +5,9 @@ PROGRESS.md
 # Kaggle data: files exceed GitHub's 100 MB limit and may not be redistributed
 data/
 
+# CLI charts (regenerated on every run)
+outputs/cli/
+
 # Caches
 __pycache__/
 .ipynb_checkpoints/
