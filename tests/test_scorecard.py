@@ -6,7 +6,9 @@ import pytest
 
 from src.scorecard import (
     apply_scorecard,
+    assign_decision,
     cutoff_table,
+    decision_summary,
     neutral_points,
     pd_to_score,
     points_direction,
@@ -88,3 +90,26 @@ def test_points_direction_ignores_tiny_bins() -> None:
     factor, offset = scaling_params()
     card = scorecard_table(pd.Series({"a": -0.8}), INTERCEPT, tables, factor, offset)
     assert points_direction(card, min_share=0.005).loc["a", "spearman"] == pytest.approx(-1.0)
+
+
+def test_assign_decision_bands_and_boundaries() -> None:
+    score = pd.Series([500.0, 539.9, 540.0, 559.9, 560.0, 600.0], index=list("abcdef"))
+    decision = assign_decision(score, reject_below=540, approve_from=560)
+    assert decision.tolist() == ["Reject", "Reject", "Review", "Review", "Approve", "Approve"]
+    assert list(decision.index) == list("abcdef")
+    assert decision.cat.ordered
+    assert "Review" not in assign_decision(score, 550, 550).tolist()
+    with pytest.raises(ValueError):
+        assign_decision(score, 560, 540)
+
+
+def test_decision_summary_totals() -> None:
+    y = pd.Series([1, 0, 1, 0, 0, 0])
+    decision = assign_decision(pd.Series([500.0, 520, 545, 555, 570, 600]), 540, 560)
+    table = decision_summary(y, decision)
+    assert list(table.index) == ["Reject", "Review", "Approve"]
+    assert table["n"].tolist() == [2, 2, 2]
+    assert table["share"].sum() == pytest.approx(1.0)
+    assert table["bads_share"].sum() == pytest.approx(1.0)
+    assert table.loc["Reject", "bad_rate"] == pytest.approx(0.5)
+    assert table.loc["Approve", "bad_rate"] == pytest.approx(0.0)

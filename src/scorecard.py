@@ -202,3 +202,53 @@ def cutoff_table(y: pd.Series, score: pd.Series, cutoffs: list[float]) -> pd.Dat
             }
         )
     return pd.DataFrame(rows).set_index("cutoff")
+
+
+DECISIONS: list[str] = ["Reject", "Review", "Approve"]
+
+
+def assign_decision(score: pd.Series, reject_below: float, approve_from: float) -> pd.Series:
+    """Map credit scores to a three-way decision.
+
+    ``score < reject_below`` -> Reject, ``score >= approve_from`` -> Approve,
+    anything in between -> Review (manual underwriting). Equal thresholds
+    give a plain approve/reject rule.
+
+    Args:
+        score: Credit score (higher = safer).
+        reject_below: Scores below this are rejected.
+        approve_from: Scores at or above this are approved.
+
+    Returns:
+        Ordered categorical Series (``Reject < Review < Approve``), same
+        index as ``score``.
+
+    Raises:
+        ValueError: If ``reject_below > approve_from``.
+    """
+    if reject_below > approve_from:
+        raise ValueError("reject_below must not exceed approve_from")
+    labels = np.select([score < reject_below, score >= approve_from], ["Reject", "Approve"], "Review")
+    return pd.Series(pd.Categorical(labels, categories=DECISIONS, ordered=True), index=score.index, name="decision")
+
+
+def decision_summary(y: pd.Series, decision: pd.Series) -> pd.DataFrame:
+    """Volume and risk of each decision band.
+
+    Args:
+        y: Binary target (1 = bad/default).
+        decision: Decision per applicant, e.g. from :func:`assign_decision`.
+
+    Returns:
+        DataFrame indexed by decision with ``n``, ``share`` (of applicants),
+        ``n_bad``, ``bad_rate`` and ``bads_share`` (of all bads).
+    """
+    table = (
+        pd.DataFrame({"y": y, "decision": decision})
+        .groupby("decision", observed=False)
+        .agg(n=("y", "size"), n_bad=("y", "sum"))
+    )
+    table["share"] = table["n"] / table["n"].sum()
+    table["bad_rate"] = table["n_bad"] / table["n"].where(table["n"] > 0)
+    table["bads_share"] = table["n_bad"] / table["n_bad"].sum()
+    return table[["n", "share", "n_bad", "bad_rate", "bads_share"]]
