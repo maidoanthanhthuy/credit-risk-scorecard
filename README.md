@@ -1,5 +1,7 @@
 # Credit Risk Scorecard with Explainable AI
 
+[![tests](https://github.com/maidoanthanhthuy/credit-risk-scorecard/actions/workflows/tests.yml/badge.svg)](https://github.com/maidoanthanhthuy/credit-risk-scorecard/actions/workflows/tests.yml)
+
 **TL;DR**
 - **What it is:** a credit score for loan applicants, built the way banks build them: a points table anyone can read, with the main reasons behind every decision.
 - **What it achieves:** 61% of applicants are approved automatically, and only 3.8% of them default, against 8.1% across all applicants. 23% go to a human underwriter and 16% are rejected.
