@@ -1,5 +1,11 @@
 # Credit Risk Scorecard with Explainable AI
 
+**TL;DR**
+- **What it is:** a credit score for loan applicants, built the way banks build them: a points table anyone can read, with the main reasons behind every decision.
+- **What it achieves:** 61% of applicants are approved automatically, and only 3.8% of them default, against 8.1% across all applicants. 23% go to a human underwriter and 16% are rejected.
+- **How far to trust it:** results come from 61,503 applicants the model never saw during training. A black-box model (LightGBM) ranks applicants only slightly better.
+- **What it flags:** applicants under 25 are scored as riskier than they really are; this bias is measured and documented.
+
 An end-to-end credit scorecard built on the [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk) dataset, following the classic banking workflow: **WoE binning → IV-based feature selection → logistic regression → points-based scorecard**. It is then challenged by **LightGBM**, explained with **SHAP**, audited for **fairness**, validated with confidence intervals, and packaged as a **three-way decision policy** with a **command-line scoring tool**.
 
 See [MODEL_CARD.md](MODEL_CARD.md) for intended use, limitations and deployment considerations.
