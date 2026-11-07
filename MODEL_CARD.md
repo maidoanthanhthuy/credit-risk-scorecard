@@ -133,7 +133,7 @@ Score biases are approximations: each group's mean predicted PD and its observed
 
 ## Limitations and risks
 
-- **No out-of-time validation.** Train and test come from a random split of the same period. The near-zero PSI/CSI says nothing about stability over time.
+- **No out-of-time validation.** Train and test come from a random split of the same period. The Home Credit data has no application date: every time field is a day count relative to the application itself (e.g. `DAYS_BIRTH`), so applications cannot be ordered in time and an out-of-time split is not possible. The near-zero PSI/CSI says nothing about stability over time.
 - **No reject inference.** The model learned only from approved loans. Applicants similar to those rejected in the past may be mis-scored.
 - **Limited data:** application table only. Models using bureau data reach AUC ≈ 0.80.
 - **Dependence on external scores.** If the `EXT_SOURCE_*` providers change their methodology or coverage, the score shifts. These features need their own monitoring.

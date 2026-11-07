@@ -160,7 +160,7 @@ All binning, WoE values, category levels and constraints are fitted on train and
 
 ## Limitations
 
-- **Single random split.** The test set has now been used for evaluation, so further model changes should be compared with cross-validation on train. There is no out-of-time validation; the near-zero PSI/CSI reflects the random split, not real stability over time.
+- **Single random split.** The test set has now been used for evaluation, so further model changes should be compared with cross-validation on train. There is no out-of-time validation. The Home Credit data has no application date: every time field is a day count relative to the application itself (e.g. `DAYS_BIRTH`), so applications cannot be ordered in time and an out-of-time split is not possible. The near-zero PSI/CSI therefore reflects the random split, not real stability over time.
 - **Only the `application` table is used.** Bureau and previous-application data would add signal; leaderboard models reach AUC ≈ 0.80.
 - **No reject inference.** The data only contains approved loans, so the model has never seen how rejected applicants would have performed.
 - **The fairness analysis is descriptive.** The under-25 group is small (2,390 test applicants, 280 defaults). No mitigation has been applied, and whether age may be used depends on the jurisdiction. A policy rule (route under-25s scoring 530–559 to Review) is suggested but not implemented.
