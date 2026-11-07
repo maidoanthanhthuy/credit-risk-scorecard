@@ -143,7 +143,7 @@ Score biases are approximations: each group's mean predicted PD and its observed
 
 The repository is a validated prototype. A production deployment would add:
 
-1. **Service layer.** A scoring API wrapping `score_applicant`, with raw inputs passed through `clean_application`. Range checks are needed, for example `EXT_SOURCE_*` in [0, 1] and non-negative durations. Every request should log the inputs, score, decision, reasons and model version.
+1. **Service layer.** A scoring API wrapping `score_applicant`, with raw inputs passed through `clean_application`. Numeric range checks (`EXT_SOURCE_*` in [0, 1], non-negative durations) are already built into `prepare_input`; a service would add checks on category labels. Every request should log the inputs, score, decision, reasons and model version.
 2. **Policy rules before the score:** eligibility (age, residency), fraud and blacklist checks, and the under-25 Review rule.
 3. **Versioned artifacts.** The four files listed under *Artifacts* form one model version and must be deployed together.
 4. **Champion–challenger.** Run LGBM-16-mono in shadow mode to collect evidence for a v2.

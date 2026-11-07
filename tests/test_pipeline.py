@@ -11,6 +11,7 @@ from src.pipeline import (
     load_bundle,
     missing_features,
     prepare_input,
+    range_errors,
     reference_points,
     score_applicant,
     score_frame,
@@ -96,3 +97,21 @@ def test_pipeline_reproduces_scorecard_on_test_set() -> None:
     one = score_applicant(test.iloc[0], bundle)
     assert one.score == pytest.approx(scored["score"].iloc[0])
     assert one.base_score + one.detail["contribution"].sum() == pytest.approx(one.score)
+
+
+def test_range_errors_lists_each_violation() -> None:
+    X = pd.DataFrame({"p": [0.5, 5.0, np.nan], "y": [-10.0, 2.0, np.inf], "other": [1e9, 0.0, 0.0]})
+    errors = range_errors(X, {"p": (0.0, 1.0), "y": (0.0, 100.0), "absent": (0.0, 1.0)})
+    assert errors == [
+        "p = 5 (row 1) is outside [0, 1]",
+        "y = -10 (row 0) is outside [0, 100]",
+        "y = inf (row 2) is outside [0, 100]",
+    ]
+    assert range_errors(X[["other"]], {"p": (0.0, 1.0)}) == []
+
+
+def test_prepare_input_rejects_out_of_range() -> None:
+    spec = {"x": {"type": "numeric", "edges": [-np.inf, np.inf]}, "c": {"type": "categorical", "levels": ["a"]}}
+    with pytest.raises(ValueError, match=r"x = 2 \(row 0\) is outside \[0, 1\]"):
+        prepare_input(pd.DataFrame({"x": [2.0], "c": ["a"]}), spec, ranges={"x": (0.0, 1.0)})
+    assert prepare_input(pd.DataFrame({"x": [None]}), spec, ranges={"x": (0.0, 1.0)})["x"].isna().all()

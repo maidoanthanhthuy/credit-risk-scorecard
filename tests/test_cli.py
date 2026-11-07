@@ -96,6 +96,14 @@ def test_main_rejects_bad_input(tmp_path: Path, capsys: pytest.CaptureFixture[st
     assert "EXT_SOURCE_3 must be numeric" in capsys.readouterr().err
 
 
+def test_main_rejects_out_of_range(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    src = tmp_path / "bad.json"
+    src.write_text(json.dumps(EXAMPLE_APPLICANT | {"EXT_SOURCE_3": 5, "YEARS_EMPLOYED": -10}))
+    assert main(["--json", str(src), "--no-plot"]) == 2
+    err = capsys.readouterr().err
+    assert "EXT_SOURCE_3 = 5" in err and "YEARS_EMPLOYED = -10" in err
+
+
 def test_main_template_is_valid_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--template"]) == 0
     assert json.loads(capsys.readouterr().out) == EXAMPLE_APPLICANT

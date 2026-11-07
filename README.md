@@ -158,7 +158,7 @@ All binning, WoE values, category levels and constraints are fitted on train and
 - **Only the `application` table is used.** Bureau and previous-application data would add signal; leaderboard models reach AUC ≈ 0.80.
 - **No reject inference.** The data only contains approved loans, so the model has never seen how rejected applicants would have performed.
 - **The fairness analysis is descriptive.** The under-25 group is small (2,390 test applicants, 280 defaults). No mitigation has been applied, and whether age may be used depends on the jurisdiction. A policy rule (route under-25s scoring 530–559 to Review) is suggested but not implemented.
-- **The CLI is a demonstrator, not a service.** It expects cleaned inputs and does no range validation; see the deployment notes in the [model card](MODEL_CARD.md).
+- **The CLI is a demonstrator, not a service.** It expects cleaned inputs. Numeric values outside their valid range (e.g. `EXT_SOURCE_*` outside [0, 1], negative durations) are rejected with a clear error (`VALID_RANGES` in `src/pipeline.py`), but categories are not checked: an unknown label is scored as `Rare`. See the deployment notes in the [model card](MODEL_CARD.md).
 
 ## Project structure
 

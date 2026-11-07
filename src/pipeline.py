@@ -17,6 +17,7 @@ import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.explain import reason_codes
@@ -26,6 +27,21 @@ from src.woe import BinRule, bin_frame
 # Decision thresholds chosen in 13_cutoff_strategy
 REJECT_BELOW: float = 540.0
 APPROVE_FROM: float = 560.0
+
+# Valid [min, max] of numeric inputs in the cleaned format (durations in years).
+# Out-of-range values would otherwise fall silently into an edge bin.
+VALID_RANGES: dict[str, tuple[float, float]] = {
+    "EXT_SOURCE_1": (0.0, 1.0),
+    "EXT_SOURCE_2": (0.0, 1.0),
+    "EXT_SOURCE_3": (0.0, 1.0),
+    "FLOORSMAX_AVG": (0.0, 1.0),
+    "YEARS_EMPLOYED": (0.0, 100.0),
+    "YEARS_REGISTRATION": (0.0, 100.0),
+    "YEARS_ID_PUBLISH": (0.0, 100.0),
+    "YEARS_LAST_PHONE_CHANGE": (0.0, 100.0),
+    "OWN_CAR_AGE": (0.0, 100.0),
+    "AMT_GOODS_PRICE": (0.0, np.inf),
+}
 
 
 @dataclass(frozen=True)
@@ -124,22 +140,54 @@ def _as_label(value: object) -> object:
     return value
 
 
-def prepare_input(applicants: pd.DataFrame, spec: dict[str, BinRule]) -> pd.DataFrame:
-    """Select and type the scorecard features.
+def range_errors(X: pd.DataFrame, ranges: dict[str, tuple[float, float]]) -> list[str]:
+    """List numeric values outside their valid range.
+
+    Missing values are allowed (they are scored as ``Missing``); infinite
+    values are always errors.
+
+    Args:
+        X: Numeric features (float columns).
+        ranges: Valid ``(min, max)`` per feature, bounds included; features
+            not in ``X`` are skipped.
+
+    Returns:
+        One message per offending value, e.g. ``"EXT_SOURCE_3 = 5 (row 0) is
+        outside [0, 1]"``; empty if all values are valid.
+    """
+    errors = []
+    for f, (lo, hi) in ranges.items():
+        if f not in X.columns:
+            continue
+        col = X[f]
+        bad = col.notna() & (~np.isfinite(col) | (col < lo) | (col > hi))
+        errors += [f"{f} = {v:g} (row {i}) is outside [{lo:g}, {hi:g}]" for i, v in col[bad].items()]
+    return errors
+
+
+def prepare_input(
+    applicants: pd.DataFrame,
+    spec: dict[str, BinRule],
+    ranges: dict[str, tuple[float, float]] = VALID_RANGES,
+) -> pd.DataFrame:
+    """Select, type and validate the scorecard features.
 
     Absent features are added as missing. Numeric features are converted to
-    float; categorical features keep their labels, with integer-valued floats
-    turned into int (flags such as ``FLAG_DOCUMENT_3`` are stored as ``"1"``).
+    float and checked against ``ranges``; categorical features keep their
+    labels, with integer-valued floats turned into int (flags such as
+    ``FLAG_DOCUMENT_3`` are stored as ``"1"``).
 
     Args:
         applicants: Applicants in the cleaned format.
         spec: Binning rule per scorecard feature.
+        ranges: Valid ``(min, max)`` per numeric feature (see :data:`VALID_RANGES`).
 
     Returns:
         DataFrame with exactly the ``spec`` columns, indexed like ``applicants``.
 
     Raises:
-        ValueError: If a numeric feature holds a non-numeric value.
+        ValueError: If a numeric feature holds a non-numeric value or a value
+            outside its valid range (all violations are listed).
     """
     out = {}
     for f, rule in spec.items():
@@ -153,7 +201,12 @@ def prepare_input(applicants: pd.DataFrame, spec: dict[str, BinRule]) -> pd.Data
             # Explicit object dtype: Series.map would re-infer [1, NaN] as float and give back 1.0
             labels = [None if pd.isna(v) else _as_label(v) for v in col.astype(object)]
             out[f] = pd.Series(labels, index=applicants.index, dtype=object)
-    return pd.DataFrame(out, index=applicants.index)
+    X = pd.DataFrame(out, index=applicants.index)
+    numeric = [f for f, rule in spec.items() if rule["type"] == "numeric"]
+    errors = range_errors(X[numeric], ranges)
+    if errors:
+        raise ValueError("invalid input: " + "; ".join(errors))
+    return X
 
 
 def reference_points(card: pd.DataFrame) -> pd.Series:

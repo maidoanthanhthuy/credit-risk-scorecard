@@ -12,3 +12,6 @@ outputs/cli/
 __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
+
+# Local test applicants for the CLI
+khach.json
