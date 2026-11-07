@@ -212,4 +212,3 @@ One integration test re-scores the whole test set through the pipeline. It is sk
 - [x] Final validation: PR-AUC, bootstrap CIs, gain / lift charts, CSI
 - [x] Decision policy: Reject / Review / Approve bands
 - [x] Scoring pipeline and command-line tool
-- [ ] Ratio features (credit / goods price, annuity / income) for a scorecard v2, validated with CV
