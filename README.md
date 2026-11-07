@@ -148,7 +148,7 @@ Run the notebooks in order; each one reads the files written by the previous one
 **Validation and decision policy**
 - **Paired bootstrap**: every model is scored on the same resample, so the CI of the Gini *difference* between models is valid.
 - **CSI**: PSI computed on each feature's WoE bins, train vs test.
-- **Decision bands**: the thresholds are read in PD terms. 560 corresponds to PD 7.4% (below average) and 540 to PD 13.8%. Five schemes were compared on volume per band, default rate per band, and the share of bads approved automatically.
+- **Decision bands**: the thresholds are read in PD terms. 560 corresponds to PD 7.4% (below average) and 540 to PD 13.8%. Five schemes were compared on volume per band, default rate per band, and the share of bads approved automatically. The comparison uses **train only**, with out-of-fold PDs from a 5-fold CV of the logit; test is used once, to report the chosen scheme.
 
 All binning, WoE values, category levels and constraints are fitted on train and applied unchanged to test.
 
@@ -169,7 +169,7 @@ src/            Pure, typed, tested functions
   split.py        Stratified train/test split
   woe.py          Binning, WoE/IV, monotonic coarse classing, WoE encoding
   selection.py    IV and correlation filters
-  model.py        Logistic regression, VIF, stepwise drop, PD prediction
+  model.py        Logistic regression, VIF, stepwise drop, PD prediction, out-of-fold PD (CV)
   evaluation.py   AUC/Gini/KS, PR-AUC, bootstrap CIs, gains/lift, calibration, PSI/CSI
   scorecard.py    PDO scaling, points table, direction checks, cut-offs, decision bands
   gbm.py          LightGBM features, monotone constraints, training

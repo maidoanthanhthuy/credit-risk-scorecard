@@ -6,6 +6,7 @@ import pandas as pd
 from src.model import (
     coefficient_table,
     compute_vif,
+    cross_val_pd,
     fit_logit,
     next_violation,
     predict_pd,
@@ -70,3 +71,12 @@ def test_predict_pd_matches_fitted_values() -> None:
     pd_hat = predict_pd(result, X)
     assert pd_hat.index.equals(X.index)
     assert np.allclose(pd_hat, result.predict())
+
+
+def test_cross_val_pd_is_out_of_fold_and_close_to_in_sample() -> None:
+    X, y = _make_data()
+    oof = cross_val_pd(X, y, n_splits=5, seed=0)
+    in_sample = predict_pd(fit_logit(X, y), X)
+    assert oof.index.equals(X.index) and oof.notna().all()
+    assert not np.allclose(oof, in_sample)
+    assert (oof - in_sample).abs().max() < 0.05

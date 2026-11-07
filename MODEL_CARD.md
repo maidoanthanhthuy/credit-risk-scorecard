@@ -94,6 +94,8 @@ The three external scores account for most of the score. Within every feature, p
 
 ## Decision policy
 
+Test set; thresholds chosen on train.
+
 | Decision | Score | PD | Share of applicants | Default rate | Share of all bads |
 |---|---|---|---|---|---|
 | Reject | < 540 | > 13.8% | 15.8% | 21.5% | 42% |
@@ -102,7 +104,7 @@ The three external scores account for most of the score. Within every feature, p
 
 *In plain words:* automatic approvals have half the average default rate (3.8% vs 8.07%), automatic rejections almost three times the average (21.5%), and the uncertain middle goes to a person.
 
-Applicants are approved automatically only when their PD is below the portfolio average (8.07%). Compared with a single cut-off at 550, the share of all bads that are approved automatically falls from 42% to 28%. If manual-review capacity is limited, the 545 / 555 scheme sends 12% of applicants to review, and 35% of bads are approved automatically. Thresholds are set in `src/pipeline.py`.
+Applicants are approved automatically only when their PD is below the portfolio average (8.07%). Compared with a single cut-off at 550, the share of all bads that are approved automatically falls from 42% to 28%. If manual-review capacity is limited, the 545 / 555 scheme sends 12% of applicants to review, and 35% of bads are approved automatically. The scheme was chosen on train (out-of-fold PDs from a 5-fold CV of the logit); the figures above are test results, reported after the choice. Thresholds are set in `src/pipeline.py`.
 
 ## Explainability
 

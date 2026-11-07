@@ -7,6 +7,7 @@ coefficient must therefore be negative.
 
 import pandas as pd
 import statsmodels.api as sm
+from sklearn.model_selection import StratifiedKFold
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -140,3 +141,27 @@ def predict_pd(result: BinaryResultsWrapper, X: pd.DataFrame) -> pd.Series:
     """
     exog = sm.add_constant(X, has_constant="add")
     return pd.Series(result.predict(exog), index=X.index, name="pd")
+
+
+def cross_val_pd(X: pd.DataFrame, y: pd.Series, n_splits: int = 5, seed: int = 42) -> pd.Series:
+    """Out-of-fold probability of default from a stratified K-fold logit.
+
+    Each row is scored by a model fitted on the other folds, so the PDs can
+    be used for decisions (e.g. choosing cut-offs) without touching test data
+    and without the optimism of in-sample predictions.
+
+    Args:
+        X: WoE-encoded features.
+        y: Binary target aligned with ``X``.
+        n_splits: Number of folds.
+        seed: Random seed for the fold assignment.
+
+    Returns:
+        Out-of-fold PD, indexed like ``X``.
+    """
+    folds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    parts = [
+        predict_pd(fit_logit(X.iloc[fit_idx], y.iloc[fit_idx]), X.iloc[oof_idx])
+        for fit_idx, oof_idx in folds.split(X, y)
+    ]
+    return pd.concat(parts).reindex(X.index)
